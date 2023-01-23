@@ -1,0 +1,4 @@
+brace_style = "AlwaysNextLine"
+use_small_heuristics = "Max"
+blank_lines_lower_bound = 0
+inline_attribute_width = 50
