@@ -30,14 +30,14 @@ pub mod lexer
         #[token("\n")]
         Newline,
 
-        /// Our additions.
+        // Our additions.
         Identifier(&'tk str),
 
         #[regex(r"\$+[a-zA-Z]+", |lex| lex.slice())]
-        Import(&'tk str), /* Import a routine  */
+        Import(&'tk str), // Import a routine.
 
         #[regex(r"_+[a-zA-Z]+_", |lex| lex.slice())]
-        Call(&'tk str), /* Call a routine & store returned value in current cell. */
+        Call(&'tk str), // Call a routine & store returned value in current cell.
     }
 
     pub struct LexedRoutine<'lr>
@@ -84,10 +84,10 @@ pub mod parser
     /// The logical relationship between TokenKinds that this struct
     /// can represent is intentionally limited, in keeping with Classic Brainfuck's
     /// extremely simple, 'flat' grammar.
-    #[derive(Clone)]
-    pub struct TokenGrouping<'tkg>
+    #[derive(Clone, Debug)]
+    pub struct Token<'tkg>
     {
-        pub parent: TokenKind<'tkg>,
+        pub kind: TokenKind<'tkg>,
         pub children: Option<Vec<TokenKind<'tkg>>>,
     }
 
@@ -95,7 +95,7 @@ pub mod parser
     pub struct ParsedRoutine<'pr>
     {
         pub name: String,
-        pub data: Vec<TokenGrouping<'pr>>,
+        pub data: Vec<Token<'pr>>,
     }
 
     impl<'pr> From<&'pr LexedRoutine<'pr>> for ParsedRoutine<'pr>
@@ -103,23 +103,24 @@ pub mod parser
         fn from(lexed: &'pr LexedRoutine) -> Self
         {
             let name = &lexed.name;
-            let mut groupings: Vec<TokenGrouping> = Vec::new();
+            let mut groupings: Vec<Token> = Vec::new();
             let mut tokens_iter = lexed.tokens.iter();
 
             while let Some(token) = tokens_iter.next() {
-                match token {
+                match token 
+                {
                     TokenKind::Import(ident_str) | TokenKind::Call(ident_str) => {
-                        groupings.push(TokenGrouping {
-                            parent: *token,
+                        groupings.push(Token {
+                            kind: *token,
                             children: Some(Vec::from([TokenKind::Identifier(ident_str)])),
                         })
                     }
 
-                    _ => groupings.push(TokenGrouping { parent: *token, children: None }),
+                    _ => groupings.push(Token { kind: *token, children: None }),
                 }
             }
 
-            ParsedRoutine { name: name.to_string(), data: groupings.to_owned() }
+            ParsedRoutine { name: name.to_string(), data: groupings.to_owned()}
         }
     }
 
@@ -128,12 +129,12 @@ pub mod parser
         pub parsed_routines: Vec<ParsedRoutine<'pr>>,
     }
 
-    impl<'pr> ParseResult<'pr>
+    impl<'pr> From<&'pr LexResult<'pr>> for ParseResult<'pr>
     {
-        pub fn new(lexed_result: &'pr LexResult) -> Self
+        fn from(lr: &'pr LexResult<'pr>) -> Self
         {
             // All lexed routines.
-            let routines = &lexed_result.lexed_routines;
+            let routines = &lr.lexed_routines;
             let routines_iter = routines.iter();
 
             // Parse all lexed routines.

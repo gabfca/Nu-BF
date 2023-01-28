@@ -1,0 +1,47 @@
+let str_type = context.i8_type().ptr_type(AddressSpace::Generic);
+let i32_type = context.i32_type();
+let printf_type = i32_type.fn_type(&[str_type], true /* variadic */);
+let printf = module.add_function("printf", &printf_type, Some(Linkage::ExternalLinkage));
+
+
+
+
+
+>++++++++[<+++++++++>-]<.>++++[<+++++++>-]<+.+++++++..+++.>>++++++[<+++++++>-]<+
++.------------.>++++++[<+++++++++>-]<+.<.+++.------.--------.>>>++++[<++++++++>-
+]<+.
+
+
+
+ TokenKind::BeginLoop => 
+                        {   
+                            let condition = context.append_basic_block(routine_fn, "l.cond");
+
+                            if stack.is_empty()
+                            { builder.build_unconditional_branch(condition); }
+
+                            builder.position_at_end(condition);
+                            
+                            let idx = builder.build_load(cells_idx, "idx").into_int_value();
+                            let cell = unsafe { builder.build_gep(calloc_call, &[idx], "cell") };
+                            let cell_val = builder.build_load(cell, "cell_val").into_int_value();
+
+                           
+
+                            let body = context.append_basic_block(routine_fn, "l.body");
+                            let end  = context.append_basic_block(routine_fn, "l.end");
+                            stack.push_from(loop_labels { condition, end });
+
+                            builder.build_conditional_branch(test, end, body);
+                            builder.position_at_end(body);
+                           
+                        },
+
+                        TokenKind::EndLoop =>  
+                        {
+                            if let Some(loop_labels) = stack.pop_front()   
+                            {
+                                builder.build_unconditional_branch(loop_labels.condition);
+                                builder.position_at_end(loop_labels.end);
+                            }
+                        }

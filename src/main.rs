@@ -1,36 +1,68 @@
+use std::ops::Deref;
 use std::path::PathBuf;
 mod analysis;
 mod codegen;
 
-use crate::analysis::{
-    lexer::*,
-    parser::*,
-};
-use crate::codegen::*;
+use crate::analysis::{lexer::*, parser::*};
+use crate::codegen::preopt::*;
+use crate::codegen::ir_gen::*;
+
+fn build(input: &PathBuf, output: &PathBuf)
+{
+    let name = input.file_stem().unwrap().to_str().unwrap();
+    let contents = std::fs::read_to_string(&input.as_path()).unwrap();
+    let contents = contents.as_str();
+    let input_file = [(name, contents)];
+
+    let lexed = LexResult::new(&input_file);
+    let parsed = ParseResult::from(&lexed);
+
+    let l = PreOptRoutine::from(&parsed.parsed_routines[0]); 
+    l.data.iter().for_each(|preopt_tok| {});
+    for token in l.data { println!("{:#?}", token)}
+
+    let codegen: CodegenCtx = CodegenCtx::new(&parsed);
+
+    let result = codegen.compile_all();
+
+    Target::initialize_all(&InitializationConfig::default());
+
+    let target_triple = TargetMachine::get_default_triple();
+    let cpu = TargetMachine::get_host_cpu_name().to_string();
+    let features = TargetMachine::get_host_cpu_features().to_string();
+
+    let target = Target::from_triple(&target_triple).unwrap();
+
+    use inkwell::targets::{
+        CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
+    };
+    use inkwell::OptimizationLevel;
+
+    let target_machine = target
+        .create_target_machine(
+            &target_triple,
+            &cpu,
+            &features,
+            OptimizationLevel::Default,
+            RelocMode::Default,
+            CodeModel::Default,
+        )
+    .unwrap();
+
+    for compiled_module in result 
+    { target_machine.write_to_file(&compiled_module.deref(), FileType::Object, output.as_path()).unwrap();}
+}
 
 fn main()
 {
     use std::env;
-    let _argv = env::args().collect::<Vec<_>>();
+    let argv = env::args().collect::<Vec<_>>();
 
+    let infile = &argv[1];
+    let outfile = &argv[2];
     /* Move to the LexResult/ ParseResult bundled-source API */
-    let path = PathBuf::from("src/main.nbf");
-    let contents = std::fs::read_to_string(&path.as_path()).unwrap();
-    let contents = contents.as_str();
+    let inpath = PathBuf::from(infile.as_str());
+    let outpath = PathBuf::from(outfile.as_str());
 
-    let name = path.file_stem().unwrap().to_str().unwrap();
-    let piped = [(name, contents)];
-
-    let lexed_files = LexResult::new(&piped);
-
-    lexed_files.lexed_routines[0].tokens.iter().for_each(|token| println!("{:#?}", token));
-
-    let parsed = ParsedRoutine::from(&lexed_files.lexed_routines[0]);
-    parsed.data.iter().for_each(|block| println!("{:#?}, {:#?}", block.parent, block.children));
-
-    let a = CodegenCtx::new(&parsed);
-    a.compile_to_module();
-
-    // &std::fs::read_to_string(source.as_path()).unwrap()
-    //                 let this_name = source.file_stem().unwrap().to_str().unwrap();
+    build(&inpath, &outpath);
 }
