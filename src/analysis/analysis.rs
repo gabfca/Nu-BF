@@ -1,9 +1,10 @@
-pub mod lexer
+pub(crate) mod lexer
 {
+
     use logos::*;
 
     #[derive(Logos, Debug, Clone, Copy, PartialEq)]
-    pub enum TokenKind<'tk>
+    pub(crate) enum TokenKind<'tk>
     {
         // Standard Brainfuck
         #[token("+")]
@@ -40,62 +41,61 @@ pub mod lexer
         Call(&'tk str), // Call a routine & store returned value in current cell.
     }
 
-    pub struct LexedRoutine<'lr>
+    pub(crate) struct LexedRoutine<'lr>
     {
-        pub name: String,
-        pub tokens: Vec<TokenKind<'lr>>,
+        pub(crate) name: String,
+        pub(crate) tokens: Vec<TokenKind<'lr>>,
     }
 
     impl<'lr> LexedRoutine<'lr>
     {
-        pub fn new(name: &'lr str, contents: &'lr str) -> Self
+        pub(crate) fn new(name: String, contents: &'lr str) -> Self
         {
             let lex = TokenKind::lexer;
             let this_tokens: Vec<TokenKind> = lex(contents).collect();
-            LexedRoutine { name: String::from(name.to_owned()), tokens: this_tokens.to_owned() }
+            LexedRoutine { name, tokens: this_tokens.to_owned() }
         }
     }
 
-    pub struct LexResult<'lre>
+    pub(crate) struct LexedProgram<'lre>
     {
-        pub lexed_routines: Vec<LexedRoutine<'lre>>,
+        pub(crate) routines: Vec<LexedRoutine<'lre>>,
     }
 
-    impl<'lre> LexResult<'lre>
+    impl<'lp> LexedProgram<'lp>
     {
-        pub fn new(routine_sources: &'lre [(&'lre str, &'lre str)]) -> Self
+        pub(crate) fn new(routine_sources: &'lp [(String, String)]) -> Self
         {
-            LexResult {
-                lexed_routines: routine_sources
+            LexedProgram {
+                routines: routine_sources
                     .iter()
-                    .map(|(name, contents)| LexedRoutine::new(*name, *contents))
+                    .map(|(name, contents)| LexedRoutine::new(name.clone(), contents))
                     .collect(),
             }
         }
     }
 }
 
-pub mod parser
+pub(crate) mod parser
 {
-
-    use super::lexer::{LexResult, LexedRoutine, TokenKind};
+    use super::lexer::*;
 
     /// This is nubf's version of an "AST" "Node", which ends up being neither.
     /// The logical relationship between TokenKinds that this struct
     /// can represent is intentionally limited, in keeping with Classic Brainfuck's
     /// extremely simple, 'flat' grammar.
     #[derive(Clone, Debug)]
-    pub struct Token<'tkg>
+    pub(crate) struct Token<'tkg>
     {
-        pub kind: TokenKind<'tkg>,
-        pub children: Option<Vec<TokenKind<'tkg>>>,
+        pub(crate) kind: TokenKind<'tkg>,
+        pub(crate) children: Option<Vec<TokenKind<'tkg>>>,
     }
 
     #[derive(Clone)]
-    pub struct ParsedRoutine<'pr>
+    pub(crate) struct ParsedRoutine<'pr>
     {
-        pub name: String,
-        pub data: Vec<Token<'pr>>,
+        pub(crate) name: String,
+        pub(crate) data: Vec<Token<'pr>>,
     }
 
     impl<'pr> From<&'pr LexedRoutine<'pr>> for ParsedRoutine<'pr>
@@ -104,11 +104,10 @@ pub mod parser
         {
             let name = &lexed.name;
             let mut groupings: Vec<Token> = Vec::new();
-            let mut tokens_iter = lexed.tokens.iter();
+            let tokens_iter = lexed.tokens.iter();
 
-            while let Some(token) = tokens_iter.next() {
-                match token 
-                {
+            for token in tokens_iter {
+                match token {
                     TokenKind::Import(ident_str) | TokenKind::Call(ident_str) => {
                         groupings.push(Token {
                             kind: *token,
@@ -120,27 +119,26 @@ pub mod parser
                 }
             }
 
-            ParsedRoutine { name: name.to_string(), data: groupings.to_owned()}
+            ParsedRoutine { name: name.to_string(), data: groupings.to_owned() }
         }
     }
 
-    pub struct ParseResult<'pr>
+    pub(crate) struct ParsedProgram<'pp>
     {
-        pub parsed_routines: Vec<ParsedRoutine<'pr>>,
+        pub(crate) routines: Vec<ParsedRoutine<'pp>>,
     }
 
-    impl<'pr> From<&'pr LexResult<'pr>> for ParseResult<'pr>
+    impl<'pr> From<&'pr LexedProgram<'pr>> for ParsedProgram<'pr>
     {
-        fn from(lr: &'pr LexResult<'pr>) -> Self
+        fn from(lr: &'pr LexedProgram<'pr>) -> Self
         {
             // All lexed routines.
-            let routines = &lr.lexed_routines;
+            let routines = &lr.routines;
             let routines_iter = routines.iter();
 
             // Parse all lexed routines.
-            let parsed_routines =
-                routines_iter.map(|routine| ParsedRoutine::from(routine)).collect::<Vec<_>>();
-            Self { parsed_routines }
+            let parsed_routines = routines_iter.map(ParsedRoutine::from).collect::<Vec<_>>();
+            Self { routines: parsed_routines }
         }
     }
 }

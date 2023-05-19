@@ -1,5 +1,5 @@
 [package]
-name = "Nu-BF"
+name = "nu_bf"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,4 @@ edition = "2021"
 # llvm-sys = { version = "150.0.0"}
 logos = { version  = "0.12.1" } 
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm14-0"] }
+clap = { version = "4.2.7", features = ["derive"] }
